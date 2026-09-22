@@ -8,7 +8,7 @@
 - 2x Oled screens
 - 2x Servo
 ### Game Hoster (server for the game)
-- 1x RasberryPi
+- 1x RasberryPi 5
 maybe:
 RasberryPi has its own monitor where it opens the website, where it hosts
 the server game between the two guns 
