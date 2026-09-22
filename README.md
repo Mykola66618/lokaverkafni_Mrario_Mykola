@@ -1,2 +1,2 @@
-# lokaverkafni_Mrario_Mykola
+# lokaverkafni_Marrio_Mykola
 Pistol game
