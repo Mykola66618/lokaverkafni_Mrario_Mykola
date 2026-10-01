@@ -1,44 +1,59 @@
 from machine import Pin, I2C, PWM
 import ssd1306
 import neopixel
+import network
 import time
+from umqtt.simple import MQTTClient
 
 
-# ==========================================
-# HC-SR04
-# ==========================================
+# =========================
+# WIFI + MQTT
+# =========================
+
+WIFI_NAME = "TskoliVESM"
+WIFI_PASSWORD = "Fallegurhestur"
+
+# Поставь актуальный IP Raspberry Pi
+MQTT_SERVER = "10.201.48.133"
+
+SHOT_TOPIC = b"game/shot"
+TARGET_TOPIC = b"game/target"
+PLAYER_TOPIC = b"game/player"
+RESULT_TOPIC = b"game/result"
+NEW_ROUND_TOPIC = b"game/new_round"
+
+
+# =========================
+# PINS
+# =========================
 
 TRIG_PIN = 5
 ECHO_PIN = 4
+BUTTON_PIN = 14
+
+OLED_SCL = 12
+OLED_SDA = 13
+
+LED_LEFT_PIN = 42
+LED_RIGHT_PIN = 41
+LED_COUNT = 10
+
+SERVO_PIN = 15
+
+
+# =========================
+# HARDWARE
+# =========================
 
 trig = Pin(TRIG_PIN, Pin.OUT)
 echo = Pin(ECHO_PIN, Pin.IN)
 
-
-# ==========================================
-# BUTTON
-# ==========================================
-
-BUTTON_PIN = 14
-
-button = Pin(
-    BUTTON_PIN,
-    Pin.IN,
-    Pin.PULL_UP
-)
-
-
-# ==========================================
-# OLED 128x64
-# ==========================================
-
-SCL_PIN = 12
-SDA_PIN = 13
+button = Pin(BUTTON_PIN, Pin.IN, Pin.PULL_UP)
 
 i2c = I2C(
     0,
-    scl=Pin(SCL_PIN),
-    sda=Pin(SDA_PIN)
+    scl=Pin(OLED_SCL),
+    sda=Pin(OLED_SDA)
 )
 
 oled = ssd1306.SSD1306_I2C(
@@ -47,32 +62,15 @@ oled = ssd1306.SSD1306_I2C(
     i2c
 )
 
-
-# ==========================================
-# LED STRIPS
-# ==========================================
-
-LED_LEFT_PIN = 42
-LED_RIGHT_PIN = 41
-
-LED_COUNT = 10
-
-leds_left = neopixel.NeoPixel(
+led_left = neopixel.NeoPixel(
     Pin(LED_LEFT_PIN),
     LED_COUNT
 )
 
-leds_right = neopixel.NeoPixel(
+led_right = neopixel.NeoPixel(
     Pin(LED_RIGHT_PIN),
     LED_COUNT
 )
-
-
-# ==========================================
-# SERVO
-# ==========================================
-
-SERVO_PIN = 15
 
 servo = PWM(
     Pin(SERVO_PIN),
@@ -80,237 +78,571 @@ servo = PWM(
 )
 
 
-# ==========================================
-# SERVO ANGLE
-# ==========================================
+# =========================
+# GAME VARIABLES
+# =========================
+
+target = 0
+current_player = 1
+game_finished = False
+
+
+# =========================
+# SERVO
+# =========================
 
 def servo_angle(angle):
-
     min_duty = 1638
     max_duty = 8192
 
     duty = int(
-        min_duty
-        + (angle / 180)
-        * (max_duty - min_duty)
+        min_duty +
+        (angle / 180) *
+        (max_duty - min_duty)
     )
 
     servo.duty_u16(duty)
 
 
-# ==========================================
-# DISTANCE
-# ==========================================
+servo_angle(30)
+
+
+# =========================
+# LED
+# =========================
+
+def clear_leds():
+
+    for i in range(LED_COUNT):
+        led_left[i] = (0, 0, 0)
+        led_right[i] = (0, 0, 0)
+
+    led_left.write()
+    led_right.write()
+
+
+clear_leds()
+
+
+# =========================
+# DISTANCE SENSOR
+# =========================
 
 def get_distance():
 
-    # Start ultrasonic pulse
     trig.value(0)
     time.sleep_us(2)
 
     trig.value(1)
     time.sleep_us(10)
-
     trig.value(0)
 
-    # Wait for echo
+    # timeout protection
+    start_wait = time.ticks_us()
+
     while echo.value() == 0:
-        pass
+
+        if time.ticks_diff(
+            time.ticks_us(),
+            start_wait
+        ) > 30000:
+
+            return None
 
     start = time.ticks_us()
 
     while echo.value() == 1:
-        pass
+
+        if time.ticks_diff(
+            time.ticks_us(),
+            start
+        ) > 30000:
+
+            return None
 
     end = time.ticks_us()
 
-    # Calculate pulse duration
     duration = time.ticks_diff(
         end,
         start
     )
 
-    # Convert to centimeters
     distance = duration / 58
 
     return distance
 
 
-# ==========================================
+# =========================
 # SHOT EFFECT
-# ==========================================
+# =========================
 
 def shot_effect():
 
-    # Move servo backwards
     servo_angle(80)
 
-    # Turn LEDs off before animation
-    leds_left.fill((0, 0, 0))
-    leds_right.fill((0, 0, 0))
+    clear_leds()
 
-    leds_left.write()
-    leds_right.write()
-
-    # LED animation
     for i in range(LED_COUNT):
 
-        # LEFT
-        leds_left[i] = (
-            100,
-            0,
-            0
-        )
+        led_left[i] = (100, 0, 0)
+        led_right[i] = (100, 0, 0)
 
-        # RIGHT
-        leds_right[i] = (
-            100,
-            0,
-            0
-        )
-
-        leds_left.write()
-        leds_right.write()
+        led_left.write()
+        led_right.write()
 
         time.sleep_ms(20)
 
-    # Return servo
     servo_angle(30)
 
-    # Keep LEDs on a little
     time.sleep_ms(80)
 
-    # Turn LEDs off
-    leds_left.fill((0, 0, 0))
-    leds_right.fill((0, 0, 0))
-
-    leds_left.write()
-    leds_right.write()
+    clear_leds()
 
 
-# ==========================================
-# START
-# ==========================================
+# =========================
+# OLED
+# =========================
 
-# Servo start position
-servo_angle(30)
+def show_ready():
+
+    oled.fill(0)
+
+    oled.text(
+        "DISTANCE DUEL",
+        10,
+        10
+    )
+
+    oled.text(
+        "READY TO PLAY",
+        10,
+        30
+    )
+
+    oled.text(
+        "Hold = New Round",
+        0,
+        50
+    )
+
+    oled.show()
 
 
-# LEDs OFF
-leds_left.fill((0, 0, 0))
-leds_right.fill((0, 0, 0))
+def show_game():
 
-leds_left.write()
-leds_right.write()
+    oled.fill(0)
+
+    oled.text(
+        "TARGET: " + str(target),
+        10,
+        5
+    )
+
+    oled.text(
+        "PLAYER " + str(current_player),
+        25,
+        25
+    )
+
+    oled.text(
+        "PRESS BUTTON",
+        15,
+        45
+    )
+
+    oled.show()
 
 
-# OLED start screen
-oled.fill(0)
+def show_new_round():
 
-oled.text(
-    "DISTANCE GAME",
-    10,
-    15
+    oled.fill(0)
+
+    oled.text(
+        "NEW ROUND",
+        25,
+        25
+    )
+
+    oled.show()
+
+
+# =========================
+# WIFI
+# =========================
+
+def connect_wifi():
+
+    wifi = network.WLAN(
+        network.STA_IF
+    )
+
+    wifi.active(True)
+
+    if wifi.isconnected():
+        return wifi
+
+    print("Connecting to WiFi...")
+
+    if WIFI_PASSWORD == "":
+        wifi.connect(WIFI_NAME)
+    else:
+        wifi.connect(
+            WIFI_NAME,
+            WIFI_PASSWORD
+        )
+
+    while not wifi.isconnected():
+
+        print(".")
+
+        time.sleep(1)
+
+    print("WiFi connected!")
+    print(
+        "ESP32 IP:",
+        wifi.ifconfig()[0]
+    )
+
+    return wifi
+
+
+# =========================
+# MQTT CALLBACK
+# =========================
+
+def mqtt_message(topic, message):
+
+    global target
+    global current_player
+    global game_finished
+
+    message = message.decode()
+
+    print(
+        "MQTT:",
+        topic,
+        message
+    )
+
+    # TARGET
+    if topic == TARGET_TOPIC:
+
+        try:
+            target = int(message)
+        except:
+            return
+
+        game_finished = False
+
+        show_game()
+
+    # PLAYER
+    elif topic == PLAYER_TOPIC:
+
+        try:
+            current_player = int(message)
+        except:
+            return
+
+        game_finished = False
+
+        show_game()
+
+    # RESULT
+    elif topic == RESULT_TOPIC:
+
+        game_finished = True
+
+        oled.fill(0)
+
+        oled.text(
+            "ROUND FINISHED",
+            5,
+            5
+        )
+
+        if "PLAYER 1" in message:
+
+            oled.text(
+                "PLAYER 1",
+                30,
+                25
+            )
+
+            oled.text(
+                "WINS!",
+                45,
+                42
+            )
+
+        elif "PLAYER 2" in message:
+
+            oled.text(
+                "PLAYER 2",
+                30,
+                25
+            )
+
+            oled.text(
+                "WINS!",
+                45,
+                42
+            )
+
+        else:
+
+            oled.text(
+                "DRAW!",
+                40,
+                30
+            )
+
+        oled.show()
+
+
+# =========================
+# CONNECT MQTT
+# =========================
+
+wifi = connect_wifi()
+
+show_ready()
+
+print("Connecting MQTT...")
+
+client = MQTTClient(
+    "distance_blaster_1",
+    MQTT_SERVER
 )
 
-oled.text(
-    "READY",
-    45,
-    35
+client.set_callback(
+    mqtt_message
 )
 
-oled.show()
+client.connect()
+
+client.subscribe(
+    TARGET_TOPIC
+)
+
+client.subscribe(
+    PLAYER_TOPIC
+)
+
+client.subscribe(
+    RESULT_TOPIC
+)
+
+print("MQTT connected!")
+print("System ready!")
 
 
-print("System ready")
+# =========================
+# BUTTON
+# =========================
 
+def button_action():
 
-# ==========================================
-# MAIN LOOP
-# ==========================================
+    global game_finished
 
-while True:
+    press_start = time.ticks_ms()
 
-    # Button pressed
-    if button.value() == 0:
+    long_press = False
 
-        print("SHOT!")
+    # Button is being held
+    while button.value() == 0:
 
-        # ----------------------------------
-        # 1. Measure immediately
-        # ----------------------------------
+        client.check_msg()
+
+        press_time = time.ticks_diff(
+            time.ticks_ms(),
+            press_start
+        )
+
+        # HOLD FOR 2 SECONDS
+        if press_time >= 2000:
+
+            long_press = True
+
+            show_new_round()
+
+            print(
+                "NEW ROUND requested"
+            )
+
+            client.publish(
+                NEW_ROUND_TOPIC,
+                b"1"
+            )
+
+            # Wait until button released
+            while button.value() == 0:
+
+                client.check_msg()
+
+                time.sleep_ms(20)
+
+            time.sleep_ms(300)
+
+            return
+
+        time.sleep_ms(10)
+
+    # =====================
+    # SHORT PRESS = SHOT
+    # =====================
+
+    if not long_press:
+
+        if game_finished:
+
+            print(
+                "Round finished. "
+                "Hold button for new round."
+            )
+
+            return
+
+        print(
+            "PLAYER",
+            current_player,
+            "SHOT"
+        )
 
         distance = get_distance()
 
+        if distance is None:
 
-        # ----------------------------------
-        # 2. OLED shows SHOT
-        # ----------------------------------
+            oled.fill(0)
 
+            oled.text(
+                "SENSOR ERROR",
+                10,
+                25
+            )
+
+            oled.show()
+
+            time.sleep(1)
+
+            show_game()
+
+            return
+
+        distance = round(
+            distance,
+            1
+        )
+
+        # SHOT screen
         oled.fill(0)
+
+        oled.text(
+            "PLAYER " +
+            str(current_player),
+            25,
+            15
+        )
 
         oled.text(
             "SHOT!",
             45,
-            25
+            35
         )
 
         oled.show()
 
-
-        # ----------------------------------
-        # 3. Servo + LED effect
-        # ----------------------------------
-
+        # servo + LEDs
         shot_effect()
 
-
-        # ----------------------------------
-        # 4. Show result AFTER animation
-        # ----------------------------------
-
+        # result
         oled.fill(0)
 
         oled.text(
-            "RESULT",
-            40,
-            8
+            "DISTANCE",
+            30,
+            10
         )
 
         oled.text(
-            "Distance:",
+            str(distance) + " cm",
             25,
-            28
-        )
-
-        oled.text(
-            str(round(distance, 1)) + " cm",
-            35,
-            45
+            35
         )
 
         oled.show()
 
-
-        # Serial result
         print(
             "Distance:",
-            round(distance, 1),
+            distance,
             "cm"
         )
 
+        # Send to Raspberry Pi
+        client.publish(
+            SHOT_TOPIC,
+            str(distance)
+        )
 
-        # ----------------------------------
-        # 5. Protection from holding button
-        # ----------------------------------
-
-        while button.value() == 0:
-
-            time.sleep_ms(10)
-
-
-        # Button debounce
-        time.sleep_ms(100)
+        time.sleep_ms(300)
 
 
-    time.sleep_ms(10)
+# =========================
+# START SCREEN
+# =========================
+
+show_ready()
+
+
+# =========================
+# MAIN LOOP
+# =========================
+
+while True:
+
+    try:
+
+        # Receive MQTT messages
+        client.check_msg()
+
+        # Button pressed
+        if button.value() == 0:
+
+            button_action()
+
+        time.sleep_ms(20)
+
+    except OSError as error:
+
+        print(
+            "MQTT ERROR:",
+            error
+        )
+
+        time.sleep(2)
+
+        try:
+
+            client.connect()
+
+            client.subscribe(
+                TARGET_TOPIC
+            )
+
+            client.subscribe(
+                PLAYER_TOPIC
+            )
+
+            client.subscribe(
+                RESULT_TOPIC
+            )
+
+            print(
+                "MQTT reconnected"
+            )
+
+        except:
+
+            print(
+                "Reconnect failed"
+            )
