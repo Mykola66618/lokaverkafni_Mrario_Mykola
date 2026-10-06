@@ -1,4 +1,4 @@
-from machine import Pin, I2C
+from machine import Pin, I2C, PWM
 import ssd1306
 import neopixel
 import network
