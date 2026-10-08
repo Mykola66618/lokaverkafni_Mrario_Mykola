@@ -1,0 +1,123 @@
+# Distance Duel – Verkefnaskýrsla
+
+**Nafn:** Nikolai  
+**Verkefni:** Distance Duel  
+**Áfangi:** VESM3 – IoT
+
+## 1. Markmið
+
+Markmið verkefnisins var að búa til leik fyrir tvo leikmenn með ESP32-S3 og Raspberry Pi. Í leiknum eiga leikmenn að mæla fjarlægð með ultrasonic-skynjara og reyna að vera eins nálægt ákveðinni fjarlægð og hægt er.
+
+Við vildum líka læra að nota MQTT til að senda upplýsingar á milli ESP32 og Raspberry Pi og búa til vefsíðu sem sýnir stöðu leiksins.
+
+## 2. Búnaður
+
+Við notuðum eftirfarandi búnað:
+
+- 2 × ESP32-S3
+- 2 × HC-SR04 ultrasonic-skynjara
+- 2 × OLED SSD1306 skjái
+- 2 × takka
+- NeoPixel LED-ljós fyrir báða leikmenn
+- Raspberry Pi
+- Wi-Fi tengingu
+
+Við notuðum MicroPython til að forrita ESP32 og Python á Raspberry Pi. Einnig notuðum við Mosquitto fyrir MQTT-samskipti og NiceGUI til að búa til vefsíðu.
+
+## 3. Hvernig leikurinn virkar
+
+Þegar leikurinn byrjar velur Raspberry Pi handahófskennda fjarlægð á milli 20 og 100 cm.
+
+Þessi fjarlægð er send til beggja ESP32 tækjanna með MQTT og birtist á OLED skjánum.
+
+Leikmenn þurfa síðan að setja skynjarann í ákveðna fjarlægð frá hlut og ýta á takkann til að mæla hana.
+
+Hver leikmaður má aðeins mæla einu sinni í hverri umferð. Það skiptir ekki máli hvor leikmaðurinn mælir fyrst.
+
+Þegar báðir leikmenn hafa sent niðurstöðurnar sínar reiknar Raspberry Pi út hvor þeirra var nær markmiðinu.
+
+Sá leikmaður sem er með minni skekkju vinnur umferðina. Ef skekkjan er sú sama verður jafntefli.
+
+Niðurstaðan birtist bæði á vefsíðunni og á OLED skjánum. LED-ljósin sýna líka niðurstöðuna:
+
+- Grænt – sigur
+- Rautt – tap
+- Gult – jafntefli
+
+Til að byrja nýja umferð er hægt að halda takkanum inni í tvær sekúndur eða ýta á „NEW ROUND“ á vefsíðunni.
+
+## 4. Forritun ESP32
+
+Við forrituðum tvö ESP32-S3 tæki. Bæði nota svipaðan kóða en hafa mismunandi MQTT auðkenni og tengingar fyrir OLED skjái og LED-ljós.
+
+Fyrri leikmaðurinn notar rauð LED-ljós en seinni leikmaðurinn blá.
+
+Við notuðum `machine.Pin` til að stjórna tökkum og ultrasonic-skynjurum, `ssd1306` fyrir OLED skjáinn og `neopixel` fyrir LED-ljósin.
+
+Ultrasonic-skynjarinn mælir tímann sem hljóðið tekur að fara að hlut og koma aftur til baka.
+
+Við reiknum fjarlægðina með þessari formúlu:
+
+`distance = duration / 58`
+
+Þar er `duration` mælt í míkrósekúndum og niðurstaðan er í sentímetrum.
+
+Eftir mælingu sendir ESP32 niðurstöðuna til Raspberry Pi með MQTT.
+
+Við notuðum líka breytuna `has_shot` til að koma í veg fyrir að leikmaður geti mælt oftar en einu sinni í sömu umferð.
+
+## 5. Raspberry Pi og MQTT
+
+Raspberry Pi er aðalþjónn leiksins. Hann velur markfjarlægð, tekur á móti mælingum og reiknar út sigurvegara.
+
+Við notuðum Mosquitto sem MQTT broker.
+
+Helstu MQTT topics eru:
+
+| Topic | Hlutverk |
+|---|---|
+| `game/target` | Sendir markfjarlægðina |
+| `game/player1/shot` | Tekur við mælingu leikmanns 1 |
+| `game/player2/shot` | Tekur við mælingu leikmanns 2 |
+| `game/result` | Sendir niðurstöðu umferðar |
+| `game/new_round` | Byrjar nýja umferð |
+
+Þegar Raspberry Pi fær báðar mælingarnar reiknar hann út skekkjuna með `abs()`.
+
+Til dæmis, ef markmiðið er 50 cm og fyrri leikmaður mælir 47 cm, er skekkjan 3 cm.
+
+Raspberry Pi ber saman skekkjurnar og sendir niðurstöðuna til beggja leikmanna.
+
+## 6. Vefsíða með NiceGUI
+
+Við bjuggum til vefsíðu með NiceGUI.
+
+Á síðunni er hægt að sjá markfjarlægðina, mælingar beggja leikmanna, skekkju þeirra og stigastöðuna.
+
+Það er líka hnappur til að byrja nýja umferð.
+
+Við stilltum Raspberry Pi þannig að Mosquitto og Python-þjónninn ræsist sjálfkrafa þegar Raspberry Pi er kveikt á.
+
+## 7. Vandamál og lausnir
+
+Við lentum í nokkrum vandamálum við verkefnið.
+
+Í byrjun áttu ESP32 tækin í vandræðum með að tengjast MQTT og stundum fengu þau ekki rétta markfjarlægð.
+
+Við komumst að því að vandamálið var í Python-kóðanum á Raspberry Pi. MQTT og vefsíðan voru ekki alltaf að nota sömu upplýsingar um leikinn.
+
+Við breyttum kóðanum þannig að leikurinn notar eina sameiginlega stöðu fyrir MQTT og NiceGUI.
+
+Við lentum líka í vandamálum með OLED skjáinn og þurftum að athuga I2C tengingar og GPIO pinna.
+
+Að lokum prófuðum við báða leikmenn, mælingarnar, LED-ljósin og sendingu upplýsinga í gegnum MQTT.
+
+## 8. Niðurstaða
+
+Í lok verkefnisins náðum við að búa til virkan leik fyrir tvo leikmenn.
+
+Bæði ESP32 tækin geta mælt fjarlægð og sent niðurstöðuna til Raspberry Pi. Raspberry Pi ber saman mælingarnar, finnur sigurvegara og sýnir niðurstöðurnar á vefsíðunni og OLED skjánum.
+
+Við lærðum hvernig hægt er að tengja saman mismunandi tæki með MQTT, vinna með skynjara og búa til vefviðmót með NiceGUI.
+
+Verkefnið hjálpaði okkur að skilja betur hvernig IoT-kerfi virka og hvernig vélbúnaður og hugbúnaður vinna saman.
