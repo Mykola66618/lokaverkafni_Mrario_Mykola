@@ -38,13 +38,13 @@ TRIG_PIN = 5
 ECHO_PIN = 4
 BUTTON_PIN = 14
 
-OLED_SCL = 16
-OLED_SDA = 17
+OLED_SCL = 9
+OLED_SDA = 8
 
 LED_LEFT_PIN = 42
 LED_RIGHT_PIN = 36
 
-LED_COUNT = 8
+LED_COUNT = 7
 
 
 # ==========================================
