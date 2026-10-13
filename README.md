@@ -32,13 +32,4 @@ Byssuleikurinn hefst þegar ýtt er á „Start“ á vefinu. Þá reyna leikmen
 ![Player1](Codes/Player1.py)
 ![Player2](Codes/Player2.py)
 ![Server](Codes/server.py)
-# Athugasemd
-Ég gef hér með samþykki mitt fyrir því að verkefnið verði birt opinberlega á vefsvæði Tækniskólans (t.d. tskoli.is og tolvubraut.is).
-
-Með undirritun staðfesti ég að:
-
-Ég veiti leyfi til að verkefnið og tilheyrandi myndir/skjöl/hlutar af verkefninu sé aðgengilegt almenningi á netinu.
-Réttur til að draga samþykki til baka: Ég er upplýst/ur um að ég get hvenær sem er dregið samþykki mitt til baka með því að senda skriflega tilkynningu til tskoli@tskoli.is.
-Réttur til að gleymast: Ef samþykki er dregið til baka mun Tækniskólinn fjarlægja verkefnið af vefsvæði sínu án ástæðulausrar tafar (samkvæmt rétti einstaklings til að gleymast, sbr. 17. gr. persónuverndarlaga).
-Tækniskólinn ber ábyrgð á meðferð persónuupplýsinga samkvæmt gildandi persónuverndarlögum.
 
