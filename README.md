@@ -1,2 +1,3 @@
-# lokaverkafni_Marrio_Mykola
-Pistol game
+# 1. lýsing
+Byssuleikurinn hefst þegar ýtt er á „Start“ á vefinu. Þá reyna leikmenn að giska á ákveðna vegalengd í sentímetrum. Sá sem er næst réttri vegalengd vinnur leikinn.
+
