@@ -27,7 +27,7 @@ Byssuleikurinn hefst þegar ýtt er á „Start“ á vefinu. Þá reyna leikmen
 [Flowchart](Images/FlowChart(Marjon&Nikola).drawio.png)
 
 # 6. Hönnunarteikningar
-![ObjectFile](3DModel)
+[ObjectFile](3DModel)
 # 7. Cóðar
 [Player1](Codes/Player1.py)
 [Player2](Codes/Player2.py)
