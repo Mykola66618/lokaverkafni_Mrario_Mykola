@@ -9,6 +9,7 @@ Byssuleikurinn hefst þegar ýtt er á „Start“ á vefinu. Þá reyna leikmen
 <img src="Images/IMG_0972.png" width="50%" height="50%">
 <img src="Images/IMG_0973.png" width="50%" height="50%">
 <img src="Images/IMG_0974.png" width="50%" height="50%">
+<img src="Images/NiceGui.png" width="50%" height="50%">
 
 # 4. íhlutalisti
 
