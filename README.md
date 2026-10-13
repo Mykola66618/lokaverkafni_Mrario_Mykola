@@ -24,12 +24,12 @@ Byssuleikurinn hefst þegar ýtt er á „Start“ á vefinu. Þá reyna leikmen
 - 1x RasberryPi 4
 
 # 5. Flæðirit
-![Flowchart](Images/FlowChart(Marjon&Nikola).drawio.png)
+[Flowchart](Images/FlowChart(Marjon&Nikola).drawio.png)
 
 # 6. Hönnunarteikningar
 ![ObjectFile](3DModel)
 # 7. Cóðar
-![Player1](Codes/Player1.py)
-![Player2](Codes/Player2.py)
-![Server](Codes/server.py)
+[Player1](Codes/Player1.py)
+[Player2](Codes/Player2.py)
+[Server](Codes/server.py)
 
